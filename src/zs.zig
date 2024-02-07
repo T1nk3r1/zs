@@ -1,5 +1,7 @@
 const std = @import("std");
 const hashmap = @import("hash_map.zig");
+const builtin = @import("builtin");
+const native_endian = builtin.cpu.arch.endian();
 
 pub fn serializeSlice(allocator: std.mem.Allocator, comptime T: type, value: T) ![]const u8 {
     var arr = std.ArrayList(u8).init(allocator);
@@ -22,7 +24,9 @@ pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
     switch (@typeInfo(T)) {
         .Void => {},
         .Int, .Float, .Bool => {
-            const bytes = std.mem.asBytes(&value);
+            var copy = value;
+            const bytes = std.mem.asBytes(&copy);
+            sliceToLittle(u8, bytes[0..]);
             _ = try writer.write(bytes);
         },
         .Array => |arr| {
@@ -97,7 +101,8 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
         .Int, .Float, .Bool => {
             var bytes: [@sizeOf(T)]u8 = undefined;
             if (try reader.read(&bytes) == 0) return error.eof;
-            out = std.mem.bytesToValue(T, &bytes);
+            littleSliceToNative(u8, &bytes);
+            out = std.mem.bytesToValue(T, bytes[0..]);
         },
         .Array => |arr| {
             for (out) |*o| {
@@ -160,6 +165,17 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
         else => unreachable,
     }
     return out;
+}
+
+inline fn sliceToLittle(comptime T: type, slice: []T) void {
+    switch (native_endian) {
+        .little => return,
+        .big => std.mem.reverse(T, slice),
+    }
+}
+
+inline fn littleSliceToNative(comptime T: type, slice: []T) void {
+    sliceToLittle(T, slice);
 }
 
 test "Serialize/Deserialise basic usage" {
