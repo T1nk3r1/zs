@@ -103,8 +103,9 @@ test "Serialize / Deserialize hashmap" {
     var deserialized = try zs.deserializeSlice(serialized, @TypeOf(map), std.testing.allocator);
     defer deserialized.deinit();
 
+    try std.testing.expectEqual(map.count(), deserialized.count());
     var it0 = map.iterator();
-    var it1 = map.iterator();
+    var it1 = deserialized.iterator();
     while (it0.next()) |e0| {
         const e1 = it1.next();
         try std.testing.expectEqual(e0.key_ptr.*, e1.?.key_ptr.*);
