@@ -5,16 +5,16 @@ pub fn serializeHashMap(writer: anytype, comptime T: type, value: T) !void {
     if (comptime isHashMapUnmanaged(T) or isHashMap(T)) {
         if (isHashMap(T)) try zs.serialize(writer, @TypeOf(value.ctx), value.ctx);
         var it = value.iterator();
+        try zs.serialize(writer, u64, value.count());
         while (it.next()) |entry| {
-            try zs.serialize(writer, bool, true);
             try zs.serialize(writer, @TypeOf(entry.key_ptr.*), entry.key_ptr.*);
             try zs.serialize(writer, @TypeOf(entry.value_ptr.*), entry.value_ptr.*);
         }
         try zs.serialize(writer, bool, false);
     } else if (comptime isArrayHashMapUnmanaged(T) or isArrayHashMap(T)) {
         if (isArrayHashMap(T)) try zs.serialize(writer, @TypeOf(value.ctx), value.ctx);
+        try zs.serialize(writer, u64, value.count());
         for (value.keys(), value.values()) |k, v| {
-            try zs.serialize(writer, bool, true);
             try zs.serialize(writer, @TypeOf(k), k);
             try zs.serialize(writer, @TypeOf(v), v);
         }
@@ -34,9 +34,8 @@ pub fn deserializeHashMap(reader: std.io.AnyReader, comptime T: type, allocator:
         out = T{};
     }
 
-    while (true) {
-        const has_data = try zs.deserialize(reader, bool, allocator);
-        if (has_data == false) break;
+    const count = try zs.deserialize(reader, u64, allocator);
+    for (0..count) |_| {
         const k = try zs.deserialize(reader, K, allocator);
         const v = try zs.deserialize(reader, V, allocator);
         if (comptime isHashMapUnmanaged(T)) try out.put(allocator, k, v) else try out.put(k, v);
