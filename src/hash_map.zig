@@ -50,35 +50,22 @@ pub fn isAnyHashMap(comptime T: type) bool {
 
 fn isHashMapUnmanaged(comptime T: type) bool {
     if (@typeInfo(T) != .Struct) return false;
-    return @hasField(T, "metadata") and @hasField(T, "size") and
-        @hasField(T, "available") and
-        @hasDecl(T, "Entry") and
-        @hasDecl(T, "KV");
+    return std.mem.containsAtLeast(u8, @typeName(T), 1, "hash_map.HashMapUnmanaged(");
 }
 
 fn isArrayHashMapUnmanaged(comptime T: type) bool {
     if (@typeInfo(T) != .Struct) return false;
-    return @hasField(T, "entries") and @hasField(T, "index_header") and
-        @hasDecl(T, "Entry") and
-        @hasDecl(T, "KV");
+    return std.mem.containsAtLeast(u8, @typeName(T), 1, "array_hash_map.ArrayHashMapUnmanaged(");
 }
 
 fn isArrayHashMap(comptime T: type) bool {
     if (@typeInfo(T) != .Struct) return false;
-    return @hasField(T, "unmanaged") and @hasField(T, "allocator") and
-        isArrayHashMapUnmanaged(std.meta.fields(T)[0].type) and
-        @hasField(T, "ctx") and
-        @hasDecl(T, "Entry") and
-        @hasDecl(T, "KV");
+    return std.mem.containsAtLeast(u8, @typeName(T), 1, "array_hash_map.ArrayHashMap(");
 }
 
 fn isHashMap(comptime T: type) bool {
     if (@typeInfo(T) != .Struct) return false;
-    return @hasField(T, "unmanaged") and @hasField(T, "allocator") and
-        isHashMapUnmanaged(std.meta.fields(T)[0].type) and
-        @hasField(T, "ctx") and
-        @hasDecl(T, "Entry") and
-        @hasDecl(T, "KV");
+    return std.mem.containsAtLeast(u8, @typeName(T), 1, "hash_map.HashMap(");
 }
 
 test "Serialize / Deserialize hashmap" {

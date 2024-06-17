@@ -17,6 +17,7 @@ pub fn deserializeSlice(data: []const u8, comptime T: type, allocator: std.mem.A
 }
 
 pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
+    @setEvalBranchQuota(10000);
     if (comptime hashmap.isAnyHashMap(T)) {
         try hashmap.serializeHashMap(writer, T, value);
         return;
@@ -92,6 +93,7 @@ pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
 }
 
 pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.mem.Allocator) !T {
+    @setEvalBranchQuota(10000);
     var out: T = undefined;
     if (comptime hashmap.isAnyHashMap(T)) {
         return hashmap.deserializeHashMap(reader, T, allocator);
