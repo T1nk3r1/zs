@@ -7,14 +7,14 @@ pub fn build(b: *std.Build) void {
     _ = b.addModule(
         "zs",
         .{
-            .root_source_file = .{ .path = "src/zs.zig" },
+            .root_source_file = b.path("src/zs.zig"),
             .target = target,
             .optimize = optimize,
         },
     );
 
     const zigser_unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/zs.zig" },
+        .root_source_file = b.path("src/zs.zig"),
         .target = target,
         .optimize = optimize,
     });

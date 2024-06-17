@@ -52,12 +52,12 @@ pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
         },
         .Struct => |s| {
             switch (s.layout) {
-                .Auto, .Extern => {
+                .auto, .@"extern" => {
                     inline for (s.fields) |field| {
                         try serialize(writer, field.type, @field(value, field.name));
                     }
                 },
-                .Packed => {
+                .@"packed" => {
                     try serialize(writer, s.backing_integer.?, @bitCast(value));
                 },
             }
@@ -129,12 +129,12 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
         },
         .Struct => |s| {
             switch (s.layout) {
-                .Auto, .Extern => {
+                .auto, .@"extern" => {
                     inline for (s.fields) |field| {
                         @field(out, field.name) = try deserialize(reader, field.type, allocator);
                     }
                 },
-                .Packed => {
+                .@"packed" => {
                     out = @bitCast(try deserialize(reader, s.backing_integer.?, allocator));
                 },
             }
