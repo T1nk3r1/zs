@@ -16,6 +16,12 @@ pub fn deserializeSlice(data: []const u8, comptime T: type, allocator: std.mem.A
     return deserialize(reader.any(), T, allocator);
 }
 
+pub fn serializedLength(comptime T: type, value: T) !u64 {
+    var writer = std.io.countingWriter(std.io.null_writer);
+    try serialize(writer.writer(), T, value);
+    return writer.bytes_written;
+}
+
 pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
     @setEvalBranchQuota(10000);
     if (comptime hashmap.isAnyHashMap(T)) {
@@ -219,4 +225,13 @@ test "Deserialize malformed enum" {
     const data = [_]u8{0x3};
     const e = deserializeSlice(data[0..], Enum, std.testing.allocator);
     try std.testing.expectError(std.meta.IntToEnumError.InvalidEnumTag, e);
+}
+
+test "serializedLength" {
+    const S = struct {
+        a: u64 = 555,
+        b: []const i16 = &.{ 1, 2, 3 },
+        c: bool = true,
+    };
+    try std.testing.expectEqual(@as(u64, 23), try serializedLength(S, .{}));
 }
