@@ -152,7 +152,26 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
             switch (s.layout) {
                 .auto, .@"extern" => {
                     inline for (s.fields) |field| {
-                        @field(out, field.name) = try deserialize(reader, field.type, allocator);
+                        switch (@typeInfo(field.type)) {
+                            .ErrorSet => {
+                                const ErrInt = getErrorBackingType(field.type);
+                                const value = try deserialize(reader, ErrInt, allocator);
+                                if (!hasError(field.type, value)) return error.invalid_error_value;
+                                @field(out, field.name) = @as(field.type, @errorCast(@errorFromInt(value)));
+                            },
+                            .ErrorUnion => |err_union_info| {
+                                const has_error = try deserialize(reader, bool, allocator);
+                                if (has_error) {
+                                    const ErrInt = getErrorBackingType(err_union_info.error_set);
+                                    const value = try deserialize(reader, ErrInt, allocator);
+                                    if (!hasError(err_union_info.error_set, value)) return error.invalid_error_value;
+                                    @field(out, field.name) = @as(err_union_info.error_set, @errorCast(@errorFromInt(value)));
+                                } else {
+                                    @field(out, field.name) = try deserialize(reader, err_union_info.payload, allocator);
+                                }
+                            },
+                            else => @field(out, field.name) = try deserialize(reader, field.type, allocator),
+                        }
                     }
                 },
                 .@"packed" => {
@@ -171,6 +190,7 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
         .Enum => |e| {
             out = try std.meta.intToEnum(T, try deserialize(reader, e.tag_type, allocator));
         },
+        .ErrorSet, .ErrorUnion => @compileError("It's not possible to deserialize an error set or error union. Consider wrapping it in a struct."),
         .Union => |u| {
             if (u.tag_type == null) unreachable;
             const tag = try deserialize(reader, u.tag_type.?, allocator);
@@ -186,6 +206,25 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
         else => unreachable,
     }
     return out;
+}
+
+inline fn getErrorBackingType(comptime E: type) type {
+    const t: E = undefined;
+    return @TypeOf(@intFromError(t));
+}
+
+fn hasError(comptime ErrorSet: type, value: getErrorBackingType(ErrorSet)) bool {
+    // TODO: make it faster
+    const info = @typeInfo(ErrorSet).ErrorSet;
+    if (info) |errors| {
+        inline for (errors) |err| {
+            const err_value = @intFromError(@field(ErrorSet, err.name));
+            if (err_value == value) return true;
+        }
+        return false;
+    } else {
+        return false;
+    }
 }
 
 inline fn sliceToLittle(comptime T: type, slice: []T) void {
@@ -244,6 +283,44 @@ test "Serialize errors" {
     const err_b_value = @intFromError(Err.b);
     try std.testing.expectEqualSlices(u8, &.{ 0x00, 0x05 }, serialized_no_error);
     try std.testing.expectEqualSlices(u8, &[_]u8{0x01} ++ std.mem.asBytes(&err_b_value), serialized_error);
+}
+test "Deserialize error union" {
+    const Err = error{
+        a,
+        b,
+        c,
+    };
+    const S = struct {
+        a: u32 = 255,
+        err: Err!u16 = 12,
+    };
+    const s0 = S{};
+    const s1 = S{ .err = Err.b };
+
+    const serialized_no_error = &[_]u8{ 0xff, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00 };
+    const serialized_error = &[_]u8{ 0xff, 0x00, 0x00, 0x00, 0x01 } ++ std.mem.asBytes(&Err.b);
+
+    const d0 = try deserializeSlice(serialized_no_error, S, std.testing.failing_allocator);
+    const d1 = try deserializeSlice(serialized_error, S, std.testing.failing_allocator);
+
+    try std.testing.expectEqual(s0, d0);
+    try std.testing.expectEqual(s1, d1);
+}
+
+test "Deserialize malformed error union" {
+    const Err = error{
+        a,
+        b,
+        c,
+    };
+    const S = struct {
+        a: u32 = 255,
+        err: Err!u16 = 12,
+    };
+    const serialized = &[_]u8{ 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 };
+    const d = deserializeSlice(serialized, S, std.testing.failing_allocator);
+
+    try std.testing.expectError(error.invalid_error_value, d);
 }
 
 test "Deserialize malformed enum" {
