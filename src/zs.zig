@@ -81,6 +81,19 @@ pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
             const num = @intFromEnum(value);
             try serialize(writer, @TypeOf(num), num);
         },
+        .ErrorSet => {
+            const v = @intFromError(value);
+            try serialize(writer, @TypeOf(v), v);
+        },
+        .ErrorUnion => |u| {
+            if (value) |v| {
+                try serialize(writer, u8, 0);
+                try serialize(writer, u.payload, v);
+            } else |err| {
+                try serialize(writer, u8, 1);
+                try serialize(writer, u.error_set, err);
+            }
+        },
         .Union => |u| {
             if (u.tag_type == null) unreachable;
             const tag = std.meta.activeTag(value);
@@ -214,6 +227,23 @@ test "Serialize/Deserialise basic usage" {
     defer std.testing.allocator.free(deserialized);
 
     try std.testing.expectEqualSlices(?S, slice, deserialized);
+}
+
+test "Serialize errors" {
+    const Err = error{
+        a,
+        b,
+        c,
+    };
+    const T = Err!u8;
+    const serialized_no_error = try serializeSlice(std.testing.allocator, T, 5);
+    defer std.testing.allocator.free(serialized_no_error);
+    const serialized_error = try serializeSlice(std.testing.allocator, T, Err.b);
+    defer std.testing.allocator.free(serialized_error);
+
+    const err_b_value = @intFromError(Err.b);
+    try std.testing.expectEqualSlices(u8, &.{ 0x00, 0x05 }, serialized_no_error);
+    try std.testing.expectEqualSlices(u8, &[_]u8{0x01} ++ std.mem.asBytes(&err_b_value), serialized_error);
 }
 
 test "Deserialize malformed enum" {
