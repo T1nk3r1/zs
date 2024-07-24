@@ -150,7 +150,7 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
             }
         },
         .Enum => |e| {
-            out = @enumFromInt(try deserialize(reader, e.tag_type, allocator));
+            out = try std.meta.intToEnum(T, try deserialize(reader, e.tag_type, allocator));
         },
         .Union => |u| {
             if (u.tag_type == null) unreachable;
@@ -208,4 +208,15 @@ test "Serialize/Deserialise basic usage" {
     defer std.testing.allocator.free(deserialized);
 
     try std.testing.expectEqualSlices(?S, slice, deserialized);
+}
+
+test "Deserialize malformed enum" {
+    const Enum = enum(u8) {
+        a = 0,
+        b = 1,
+        c = 2,
+    };
+    const data = [_]u8{0x3};
+    const e = deserializeSlice(data[0..], Enum, std.testing.allocator);
+    try std.testing.expectError(std.meta.IntToEnumError.InvalidEnumTag, e);
 }
