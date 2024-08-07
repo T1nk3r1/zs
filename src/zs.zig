@@ -384,3 +384,24 @@ test "Serialize/Deserialise BoundedArray" {
     try std.testing.expectEqual(array.len, deserialized.len);
     try std.testing.expectEqualSlices(?S, array.slice(), deserialized.slice());
 }
+
+test "Serialize/Deserialise StaticBitSet" {
+    var set0 = std.StaticBitSet(16).initEmpty();
+    var set1 = std.StaticBitSet(128).initEmpty();
+
+    set0.set(5);
+    set0.set(10);
+
+    set1.set(56);
+    set1.set(111);
+
+    const s0 = try serializeIntoSlice(std.testing.allocator, @TypeOf(set0), set0);
+    const s1 = try serializeIntoSlice(std.testing.allocator, @TypeOf(set1), set1);
+    defer std.testing.allocator.free(s0);
+    defer std.testing.allocator.free(s1);
+    const d0 = try deserializeFromSlice(s0, @TypeOf(set0), std.testing.allocator);
+    const d1 = try deserializeFromSlice(s1, @TypeOf(set1), std.testing.allocator);
+
+    try std.testing.expectEqual(set0, d0);
+    try std.testing.expectEqual(set1, d1);
+}
