@@ -350,3 +350,37 @@ test "serializedLength" {
     };
     try std.testing.expectEqual(@as(u64, 23), try serializedLength(S, .{}));
 }
+
+test "Serialize/Deserialise BoundedArray" {
+    const U = union(enum) {
+        a: f32,
+        b: u32,
+        c: f128,
+    };
+
+    const SP = packed struct(u8) {
+        a: u2 = 1,
+        b: u4 = 5,
+        _: u2 = undefined,
+    };
+
+    const S = struct {
+        a: u8 = 127,
+        pos: @Vector(3, f32) = .{ 0.0, 1.0, 2.0 },
+        u: U = .{ .c = 500 },
+        c: void = void{},
+        p: SP = .{},
+    };
+
+    var array = std.BoundedArray(?S, 16){};
+    array.append(.{ .p = .{ .a = 3, .b = 0 } }) catch unreachable;
+    array.append(null) catch unreachable;
+    array.append(.{ .a = 66, .u = .{ .c = 5.0 } }) catch unreachable;
+
+    const serialized = try serializeIntoSlice(std.testing.allocator, @TypeOf(array), array);
+    defer std.testing.allocator.free(serialized);
+    const deserialized = try deserializeFromSlice(serialized, @TypeOf(array), std.testing.allocator);
+
+    try std.testing.expectEqual(array.len, deserialized.len);
+    try std.testing.expectEqualSlices(?S, array.slice(), deserialized.slice());
+}
