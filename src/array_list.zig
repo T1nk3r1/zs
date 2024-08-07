@@ -58,6 +58,7 @@ test "Serialize / Deserialize ArrayList" {
     defer deserialized.deinit();
 
     try std.testing.expectEqual(list.items.len, deserialized.items.len);
+    try std.testing.expectEqual(std.testing.allocator, deserialized.allocator);
     try std.testing.expectEqualSlices(S0, list.items, deserialized.items);
 }
 
