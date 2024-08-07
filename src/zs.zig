@@ -134,7 +134,7 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
             out = std.mem.bytesToValue(T, bytes[0..]);
         },
         .Array => |arr| {
-            for (out) |*o| {
+            for (out[0..]) |*o| {
                 o.* = try deserialize(reader, arr.child, allocator);
             }
         },
