@@ -1,5 +1,5 @@
 # Zig Serializer (ZS)
-ZS is a simple binary serializer written in Zig.
+ZS is a simple binary serializer written in Zig that supports many std containers.
 
 # Installation
 Use the following command to add ZS to your project:
@@ -34,7 +34,10 @@ ZS supports a variety of Zig types:
 - `Union`
 
 It also supports some std containers:
+- [ArrayList](https://github.com/T1nk3r1/zs/blob/master/src/array_list.zig)
 - [HashMap/ArrayHashMap](https://github.com/T1nk3r1/zs/blob/master/src/hash_map.zig)
+- BoundedArray
+- StaticBitSet
 
 # Example
 ```zig
