@@ -1,5 +1,6 @@
 const std = @import("std");
 const hashmap = @import("hash_map.zig");
+const array_list = @import("array_list.zig");
 const builtin = @import("builtin");
 const native_endian = builtin.cpu.arch.endian();
 
@@ -26,6 +27,10 @@ pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
     @setEvalBranchQuota(10000);
     if (comptime hashmap.isAnyHashMap(T)) {
         try hashmap.serializeHashMap(writer, T, value);
+        return;
+    }
+    if (comptime array_list.isAnyArrayList(T)) {
+        try array_list.serializeArrayList(writer, T, value);
         return;
     }
     switch (@typeInfo(T)) {
@@ -116,6 +121,9 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
     var out: T = undefined;
     if (comptime hashmap.isAnyHashMap(T)) {
         return hashmap.deserializeHashMap(reader, T, allocator);
+    }
+    if (comptime array_list.isAnyArrayList(T)) {
+        return array_list.deserializeArrayList(reader, T, allocator);
     }
     switch (@typeInfo(T)) {
         .Void => {},
