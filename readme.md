@@ -49,12 +49,12 @@ pub fn main() !void {
     };
 
     const my_client = Client{ .id = 100, .balance = 500.0, .name = "John" };
-    const serialized = try zs.serializeSlice(std.heap.c_allocator, Client, my_client);
+    const serialized = try zs.serializeIntoSlice(std.heap.c_allocator, Client, my_client);
     defer std.heap.c_allocator.free(serialized);
 
     // Some code...
 
-    const des_client = try zs.deserializeSlice(serialized, Client, std.heap.c_allocator);
+    const des_client = try zs.deserializeFromSlice(serialized, Client, std.heap.c_allocator);
     defer std.heap.c_allocator.free(des_client.name);
 
     std.log.debug("id: {} balance: {d} name: {s}", .{ des_client.id, des_client.balance, des_client.name });

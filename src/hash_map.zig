@@ -84,9 +84,9 @@ test "Serialize / Deserialize hashmap" {
     try map.put(.{ .a = 3, .b = -3 }, .{ .a = -1 });
     try map.put(.{ .a = 7, .b = -4 }, .{ .a = 13 });
 
-    const serialized = try zs.serializeSlice(std.testing.allocator, @TypeOf(map), map);
+    const serialized = try zs.serializeIntoSlice(std.testing.allocator, @TypeOf(map), map);
     defer std.testing.allocator.free(serialized);
-    var deserialized = try zs.deserializeSlice(serialized, @TypeOf(map), std.testing.allocator);
+    var deserialized = try zs.deserializeFromSlice(serialized, @TypeOf(map), std.testing.allocator);
     defer deserialized.deinit();
 
     try std.testing.expectEqual(map.count(), deserialized.count());

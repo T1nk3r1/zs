@@ -3,14 +3,14 @@ const hashmap = @import("hash_map.zig");
 const builtin = @import("builtin");
 const native_endian = builtin.cpu.arch.endian();
 
-pub fn serializeSlice(allocator: std.mem.Allocator, comptime T: type, value: T) ![]const u8 {
+pub fn serializeIntoSlice(allocator: std.mem.Allocator, comptime T: type, value: T) ![]const u8 {
     var arr = std.ArrayList(u8).init(allocator);
     const writer = arr.writer();
     try serialize(writer, T, value);
     return arr.toOwnedSlice();
 }
 
-pub fn deserializeSlice(data: []const u8, comptime T: type, allocator: std.mem.Allocator) !T {
+pub fn deserializeFromSlice(data: []const u8, comptime T: type, allocator: std.mem.Allocator) !T {
     var stream = std.io.fixedBufferStream(data);
     const reader = stream.reader();
     return deserialize(reader.any(), T, allocator);
@@ -260,9 +260,9 @@ test "Serialize/Deserialise basic usage" {
     };
 
     const slice: []const ?S = &.{ .{ .p = .{ .a = 3, .b = 0 } }, null, .{ .a = 66, .u = .{ .c = 5.0 } } };
-    const serialized = try serializeSlice(std.testing.allocator, @TypeOf(slice), slice);
+    const serialized = try serializeIntoSlice(std.testing.allocator, @TypeOf(slice), slice);
     defer std.testing.allocator.free(serialized);
-    const deserialized = try deserializeSlice(serialized, @TypeOf(slice), std.testing.allocator);
+    const deserialized = try deserializeFromSlice(serialized, @TypeOf(slice), std.testing.allocator);
     defer std.testing.allocator.free(deserialized);
 
     try std.testing.expectEqualSlices(?S, slice, deserialized);
@@ -275,9 +275,9 @@ test "Serialize errors" {
         c,
     };
     const T = Err!u8;
-    const serialized_no_error = try serializeSlice(std.testing.allocator, T, 5);
+    const serialized_no_error = try serializeIntoSlice(std.testing.allocator, T, 5);
     defer std.testing.allocator.free(serialized_no_error);
-    const serialized_error = try serializeSlice(std.testing.allocator, T, Err.b);
+    const serialized_error = try serializeIntoSlice(std.testing.allocator, T, Err.b);
     defer std.testing.allocator.free(serialized_error);
 
     const err_b_value = @intFromError(Err.b);
@@ -300,8 +300,8 @@ test "Deserialize error union" {
     const serialized_no_error = &[_]u8{ 0xff, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00 };
     const serialized_error = &[_]u8{ 0xff, 0x00, 0x00, 0x00, 0x01 } ++ std.mem.asBytes(&Err.b);
 
-    const d0 = try deserializeSlice(serialized_no_error, S, std.testing.failing_allocator);
-    const d1 = try deserializeSlice(serialized_error, S, std.testing.failing_allocator);
+    const d0 = try deserializeFromSlice(serialized_no_error, S, std.testing.failing_allocator);
+    const d1 = try deserializeFromSlice(serialized_error, S, std.testing.failing_allocator);
 
     try std.testing.expectEqual(s0, d0);
     try std.testing.expectEqual(s1, d1);
@@ -318,7 +318,7 @@ test "Deserialize malformed error union" {
         err: Err!u16 = 12,
     };
     const serialized = &[_]u8{ 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 };
-    const d = deserializeSlice(serialized, S, std.testing.failing_allocator);
+    const d = deserializeFromSlice(serialized, S, std.testing.failing_allocator);
 
     try std.testing.expectError(error.invalid_error_value, d);
 }
@@ -330,7 +330,7 @@ test "Deserialize malformed enum" {
         c = 2,
     };
     const data = [_]u8{0x3};
-    const e = deserializeSlice(data[0..], Enum, std.testing.allocator);
+    const e = deserializeFromSlice(data[0..], Enum, std.testing.allocator);
     try std.testing.expectError(std.meta.IntToEnumError.InvalidEnumTag, e);
 }
 
