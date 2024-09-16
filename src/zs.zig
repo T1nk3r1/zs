@@ -34,24 +34,24 @@ pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
         return;
     }
     switch (@typeInfo(T)) {
-        .Void => {},
-        .Int, .Float, .Bool => {
+        .void => {},
+        .int, .float, .bool => {
             var copy = value;
             const bytes = std.mem.asBytes(&copy);
             sliceToLittle(u8, bytes[0..]);
             _ = try writer.write(bytes);
         },
-        .Array => |arr| {
+        .array => |arr| {
             for (value) |val| {
                 try serialize(writer, arr.child, val);
             }
         },
-        .Vector => |vec| {
+        .vector => |vec| {
             for (0..vec.len) |i| {
                 try serialize(writer, vec.child, value[i]);
             }
         },
-        .Pointer => |ptr| {
+        .pointer => |ptr| {
             switch (ptr.size) {
                 .Slice => {
                     try writer.writeInt(u64, @intCast(value.len), .little);
@@ -62,7 +62,7 @@ pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
                 else => unreachable,
             }
         },
-        .Struct => |s| {
+        .@"struct" => |s| {
             switch (s.layout) {
                 .auto, .@"extern" => {
                     inline for (s.fields) |field| {
@@ -74,7 +74,7 @@ pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
                 },
             }
         },
-        .Optional => |o| {
+        .optional => |o| {
             if (value != null) {
                 try serialize(writer, bool, true);
                 try serialize(writer, o.child, value.?);
@@ -82,15 +82,15 @@ pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
                 try serialize(writer, bool, false);
             }
         },
-        .Enum => {
+        .@"enum" => {
             const num = @intFromEnum(value);
             try serialize(writer, @TypeOf(num), num);
         },
-        .ErrorSet => {
+        .error_set => {
             const v = @intFromError(value);
             try serialize(writer, @TypeOf(v), v);
         },
-        .ErrorUnion => |u| {
+        .error_union => |u| {
             if (value) |v| {
                 try serialize(writer, u8, 0);
                 try serialize(writer, u.payload, v);
@@ -99,7 +99,7 @@ pub fn serialize(writer: anytype, comptime T: type, value: T) !void {
                 try serialize(writer, u.error_set, err);
             }
         },
-        .Union => |u| {
+        .@"union" => |u| {
             if (u.tag_type == null) unreachable;
             const tag = std.meta.activeTag(value);
             const name = @tagName(value);
@@ -126,24 +126,24 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
         return array_list.deserializeArrayList(reader, T, allocator);
     }
     switch (@typeInfo(T)) {
-        .Void => {},
-        .Int, .Float, .Bool => {
+        .void => {},
+        .int, .float, .bool => {
             var bytes: [@sizeOf(T)]u8 = undefined;
             if (try reader.read(&bytes) == 0) return error.eof;
             littleSliceToNative(u8, &bytes);
             out = std.mem.bytesToValue(T, bytes[0..]);
         },
-        .Array => |arr| {
+        .array => |arr| {
             for (out[0..]) |*o| {
                 o.* = try deserialize(reader, arr.child, allocator);
             }
         },
-        .Vector => |vec| {
+        .vector => |vec| {
             for (0..vec.len) |i| {
                 out[i] = try deserialize(reader, vec.child, allocator);
             }
         },
-        .Pointer => |ptr| {
+        .pointer => |ptr| {
             switch (ptr.size) {
                 .Slice => {
                     const len = try reader.readInt(u64, .little);
@@ -156,18 +156,18 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
                 else => unreachable,
             }
         },
-        .Struct => |s| {
+        .@"struct" => |s| {
             switch (s.layout) {
                 .auto, .@"extern" => {
                     inline for (s.fields) |field| {
                         switch (@typeInfo(field.type)) {
-                            .ErrorSet => {
+                            .error_set => {
                                 const ErrInt = getErrorBackingType(field.type);
                                 const value = try deserialize(reader, ErrInt, allocator);
                                 if (!hasError(field.type, value)) return error.invalid_error_value;
                                 @field(out, field.name) = @as(field.type, @errorCast(@errorFromInt(value)));
                             },
-                            .ErrorUnion => |err_union_info| {
+                            .error_union => |err_union_info| {
                                 const has_error = try deserialize(reader, bool, allocator);
                                 if (has_error) {
                                     const ErrInt = getErrorBackingType(err_union_info.error_set);
@@ -187,7 +187,7 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
                 },
             }
         },
-        .Optional => |o| {
+        .optional => |o| {
             const has_value = try deserialize(reader, bool, allocator);
             if (has_value) {
                 out = try deserialize(reader, o.child, allocator);
@@ -195,11 +195,11 @@ pub fn deserialize(reader: std.io.AnyReader, comptime T: type, allocator: std.me
                 out = null;
             }
         },
-        .Enum => |e| {
+        .@"enum" => |e| {
             out = try std.meta.intToEnum(T, try deserialize(reader, e.tag_type, allocator));
         },
-        .ErrorSet, .ErrorUnion => @compileError("It's not possible to deserialize an error set or error union. Consider wrapping it in a struct."),
-        .Union => |u| {
+        .error_set, .error_union => @compileError("It's not possible to deserialize an error set or error union. Consider wrapping it in a struct."),
+        .@"union" => |u| {
             if (u.tag_type == null) unreachable;
             const tag = try deserialize(reader, u.tag_type.?, allocator);
             const name = @tagName(tag);
@@ -223,7 +223,7 @@ inline fn getErrorBackingType(comptime E: type) type {
 
 fn hasError(comptime ErrorSet: type, value: getErrorBackingType(ErrorSet)) bool {
     // TODO: make it faster
-    const info = @typeInfo(ErrorSet).ErrorSet;
+    const info = @typeInfo(ErrorSet).error_set;
     if (info) |errors| {
         inline for (errors) |err| {
             const err_value = @intFromError(@field(ErrorSet, err.name));

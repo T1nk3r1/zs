@@ -10,8 +10,8 @@ pub fn serializeArrayList(writer: anytype, comptime T: type, value: T) !void {
 
 pub fn deserializeArrayList(reader: std.io.AnyReader, comptime T: type, allocator: std.mem.Allocator) !T {
     var out: T = undefined;
-    const alignment = @typeInfo(@TypeOf(out.items)).Pointer.alignment;
-    const Child = @typeInfo(@TypeOf(out.items)).Pointer.child;
+    const alignment = @typeInfo(@TypeOf(out.items)).pointer.alignment;
+    const Child = @typeInfo(@TypeOf(out.items)).pointer.child;
     const size: u64 = try reader.readInt(u64, .little);
 
     const items = try allocator.alignedAlloc(Child, alignment, size);
@@ -30,12 +30,12 @@ pub fn isAnyArrayList(comptime T: type) bool {
 }
 
 fn isArrayListUnmanaged(comptime T: type) bool {
-    if (@typeInfo(T) != .Struct) return false;
+    if (@typeInfo(T) != .@"struct") return false;
     return std.mem.containsAtLeast(u8, @typeName(T), 1, "array_list.ArrayListAlignedUnmanaged(");
 }
 
 fn isArrayList(comptime T: type) bool {
-    if (@typeInfo(T) != .Struct) return false;
+    if (@typeInfo(T) != .@"struct") return false;
     return std.mem.containsAtLeast(u8, @typeName(T), 1, "array_list.ArrayListAligned(");
 }
 

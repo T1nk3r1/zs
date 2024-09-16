@@ -49,22 +49,22 @@ pub fn isAnyHashMap(comptime T: type) bool {
 }
 
 fn isHashMapUnmanaged(comptime T: type) bool {
-    if (@typeInfo(T) != .Struct) return false;
+    if (@typeInfo(T) != .@"struct") return false;
     return std.mem.containsAtLeast(u8, @typeName(T), 1, "hash_map.HashMapUnmanaged(");
 }
 
 fn isArrayHashMapUnmanaged(comptime T: type) bool {
-    if (@typeInfo(T) != .Struct) return false;
+    if (@typeInfo(T) != .@"struct") return false;
     return std.mem.containsAtLeast(u8, @typeName(T), 1, "array_hash_map.ArrayHashMapUnmanaged(");
 }
 
 fn isArrayHashMap(comptime T: type) bool {
-    if (@typeInfo(T) != .Struct) return false;
+    if (@typeInfo(T) != .@"struct") return false;
     return std.mem.containsAtLeast(u8, @typeName(T), 1, "array_hash_map.ArrayHashMap(");
 }
 
 fn isHashMap(comptime T: type) bool {
-    if (@typeInfo(T) != .Struct) return false;
+    if (@typeInfo(T) != .@"struct") return false;
     return std.mem.containsAtLeast(u8, @typeName(T), 1, "hash_map.HashMap(");
 }
 
